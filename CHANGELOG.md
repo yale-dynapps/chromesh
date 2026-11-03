@@ -6,6 +6,22 @@ en haut.
 Statut de test : aucune version n'a encore été validée dans un navigateur
 au-delà des points cités. Chaque entrée dit ce qui a été vérifié.
 
+## 0.2.4 — 03/11/2026
+
+### Ajouté
+- Paramètres : case « Bandeaux sur la liste des projets » (`showProjectIndex`,
+  activée par défaut). Décochée, la vue `/project` n'affiche plus rien et ne
+  force plus le balayage quand le cache est vide.
+
+### Modifié
+- « Bandeau sur la page de la branche » (`showBanner`) ne pilote plus la vue
+  `/project` : c'est `showProjectIndex` qui s'en charge.
+
+### Vérifié
+- `node --check` sur tous les fichiers de `src/`.
+- Non testé : vue `/project` dans un navigateur, case cochée ou décochée ;
+  chargement dans Chrome et Edge.
+
 ## 0.2.3 — 03/11/2026
 
 ### Corrigé

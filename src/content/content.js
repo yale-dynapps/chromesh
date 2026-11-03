@@ -332,7 +332,7 @@ Cliquer pour exclure ${branchName} du suivi (reversible depuis les options).`;
     function renderProjectCard(card, projectName, layout = "kanban") {
         const { state: worst, branch, counts } = worstForProject(projectName);
         const shown =
-            state.settings.showBanner &&
+            state.settings.showProjectIndex &&
             (worst.level === LEVELS.WARNING ||
                 worst.level === LEVELS.CRITICAL ||
                 worst.level === LEVELS.EXPIRED);
@@ -443,10 +443,12 @@ Cliquer pour exclure ${branchName} du suivi (reversible depuis les options).`;
         state.renderPending = false;
         try {
             if (parse.isProjectIndex(location.pathname)) {
+                // Option désactivée : renderProjectIndex retire les bandeaux
+                // déjà posés, et le balayage forcé n'a plus lieu d'être.
                 renderProjectIndex();
                 // Sans cache, la vue projet n'a rien a montrer : on force le
                 // balayage au lieu d'attendre la prochaine echeance.
-                if (!Object.keys(state.cache).length) {
+                if (state.settings.showProjectIndex && !Object.keys(state.cache).length) {
                     await scanAllProjects({ force: true });
                 }
                 return;
