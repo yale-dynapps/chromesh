@@ -1,7 +1,16 @@
 (async function () {
-    const { store } = globalThis.CHROMESH;
+    const { store, online } = globalThis.CHROMESH;
 
-    const CHECKBOXES = ["useHolidays", "notify", "showBadges", "showBanner", "showProjectBanner", "scanAllProjects"];
+    const CHECKBOXES = [
+        "useHolidays",
+        "notify",
+        "showBadges",
+        "showBanner",
+        "showProjectBanner",
+        "scanAllProjects",
+        "trackOnline",
+    ];
+    const ONLINE_ACCESS = { origins: [online.ORIGIN] };
     const NUMBERS = ["criticalDays", "warningDays", "notifyHour", "refreshHours"];
 
     const settings = await store.getSettings();
@@ -17,6 +26,31 @@
 
     showBuild();
 
+    // L'accès à *.odoo.com se demande au clic : le navigateur exige un geste
+    // de l'utilisateur, et l'appel doit précéder tout await.
+    const trackOnline = document.getElementById("trackOnline");
+    const onlineError = document.getElementById("online-error");
+    trackOnline.addEventListener("change", () => {
+        onlineError.hidden = true;
+        if (!trackOnline.checked) {
+            return;
+        }
+        chrome.permissions.request(ONLINE_ACCESS).then(
+            (granted) => {
+                if (!granted) {
+                    trackOnline.checked = false;
+                    onlineError.textContent = "Accès à *.odoo.com refusé : l'option reste désactivée.";
+                    onlineError.hidden = false;
+                }
+            },
+            (error) => {
+                trackOnline.checked = false;
+                onlineError.textContent = String(error.message || error);
+                onlineError.hidden = false;
+            }
+        );
+    });
+
     document.getElementById("save").addEventListener("click", async () => {
         const patch = { country: document.getElementById("country").value };
         CHECKBOXES.forEach((id) => {
@@ -28,11 +62,17 @@
             // le reglage au lieu de revenir au defaut.
             patch[id] = raw === "" ? store.DEFAULTS[id] : Number(raw);
         });
-        patch.ignored = document
-            .getElementById("ignored")
-            .value.split("\n")
-            .map((line) => line.trim())
-            .filter(Boolean);
+        // Une URL de base Odoo Online collée telle quelle devient
+        // `Odoo Online::<base>`. Doublons retirés.
+        patch.ignored = [
+            ...new Set(
+                document
+                    .getElementById("ignored")
+                    .value.split("\n")
+                    .map((line) => online.ruleFromInput(line))
+                    .filter(Boolean)
+            ),
+        ];
 
         const saved = document.getElementById("saved");
         const failed = document.getElementById("save-error");
@@ -41,9 +81,15 @@
             // store.setSettings borne les nombres et force warningDays >=
             // criticalDays : les champs sont relus pour montrer le resultat.
             const written = await store.setSettings(patch);
+            if (!patch.trackOnline) {
+                // Option coupée : l'accès à *.odoo.com est rendu. Le service
+                // worker désinscrit le script sur ce changement.
+                await chrome.permissions.remove(ONLINE_ACCESS).catch(() => false);
+            }
             NUMBERS.forEach((id) => {
                 document.getElementById(id).value = written[id];
             });
+            document.getElementById("ignored").value = written.ignored.join("\n");
             saved.hidden = false;
             setTimeout(() => {
                 saved.hidden = true;
